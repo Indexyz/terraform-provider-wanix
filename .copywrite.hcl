@@ -6,6 +6,9 @@ project {
   copyright_year = 2021
 
   header_ignore = [
+    # Local reference repositories are not part of this provider.
+    "references/**",
+
     # internal catalog metadata (prose)
     "META.d/**/*.yaml",
 

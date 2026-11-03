@@ -1,64 +1,42 @@
-# Terraform Provider Scaffolding (Terraform Plugin Framework)
+# Terraform Provider Wanix
 
-_This template repository is built on the [Terraform Plugin Framework](https://github.com/hashicorp/terraform-plugin-framework). The template repository built on the [Terraform Plugin SDK](https://github.com/hashicorp/terraform-plugin-sdk) can be found at [terraform-provider-scaffolding](https://github.com/hashicorp/terraform-provider-scaffolding). See [Which SDK Should I Use?](https://developer.hashicorp.com/terraform/plugin/framework-benefits) in the Terraform documentation for additional information._
+This provider manages the `pop.wanix.net/v1alpha1` `Instance` custom resource from `sdwan-operator`.
 
-This repository is a *template* for a [Terraform](https://www.terraform.io) provider. It is intended as a starting point for creating Terraform providers, containing:
-
-- A resource and a data source (`internal/provider/`),
-- Examples (`examples/`) and generated documentation (`docs/`),
-- Miscellaneous meta files.
-
-These files contain boilerplate code that you will need to edit to create your own Terraform provider. Tutorials for creating Terraform providers can be found on the [HashiCorp Developer](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework) platform. _Terraform Plugin Framework specific guides are titled accordingly._
-
-Please see the [GitHub template repository documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template) for how to create a new repository from this template on GitHub.
-
-Once you've written your provider, you'll want to [publish it on the Terraform Registry](https://developer.hashicorp.com/terraform/registry/providers/publishing) so that others can use it.
+`wanix_instance` deliberately avoids the Kubernetes provider's patch path: creates use `POST`, updates use conflict-retried full-object `PUT`, and deletes use `DELETE`. This is useful for the `Instance` CRD because operator-managed fields and CRD patch behavior can otherwise cause update failures.
 
 ## Requirements
 
-- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
-- [Go](https://golang.org/doc/install) >= 1.24
+- Terraform >= 1.0
+- Go >= 1.25
+- The `pop.wanix.net/v1alpha1` CRD and `sdwan-operator` installed in the target cluster
 
-## Building the Provider
+## Base64 kubeconfig
 
-1. Clone the repository
-1. Enter the repository directory
-1. Build the provider using the Go `install` command:
+The provider can load a standard base64-encoded kubeconfig directly in memory, without writing a temporary file:
 
-```shell
-go install
+```hcl
+variable "kubeconfig_base64" {
+  type      = string
+  sensitive = true
+}
+
+provider "wanix" {
+  kubeconfig_base64 = var.kubeconfig_base64
+  # config_context = "my-context" # Optional; defaults to current-context.
+}
 ```
 
-## Adding Dependencies
+`kubeconfig_base64` cannot be combined with `config_path`, `host`, or `in_cluster_config`. Embed certificates and keys in the kubeconfig (`certificate-authority-data`, `client-certificate-data`, `client-key-data`) rather than referencing local files. Standard base64 encoding is not encryption; handle the value as a credential.
 
-This provider uses [Go modules](https://github.com/golang/go/wiki/Modules).
-Please see the Go documentation for the most up to date information about using Go modules.
-
-To add a new dependency `github.com/author/dependency` to your Terraform provider:
+## Development
 
 ```shell
-go get github.com/author/dependency
-go mod tidy
+make test
+make build
 ```
 
-Then commit the changes to `go.mod` and `go.sum`.
+See [`docs/resources/instance.md`](docs/resources/instance.md) and [`examples/resources/wanix_instance/resource.tf`](examples/resources/wanix_instance/resource.tf) for usage. Existing backend templates can follow the [migration guide](docs/guides/migrate-kubernetes-manifest.md).
 
-## Using the Provider
+The Terraform lifecycle tests run against an in-process Kubernetes API stub, including conflict retries and a prohibition on PATCH. They do not require a real cluster. Live operator integration still needs to be verified against your cluster.
 
-Fill this in for each provider
-
-## Developing the Provider
-
-If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (see [Requirements](#requirements) above).
-
-To compile the provider, run `go install`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
-
-To generate or update documentation, run `make generate`.
-
-In order to run the full suite of Acceptance tests, run `make testacc`.
-
-*Note:* Acceptance tests create real resources, and often cost money to run.
-
-```shell
-make testacc
-```
+The examples use the provider address `Indexyz/wanix`; they do not imply that a release has been published. For local development, run `go install` and configure a Terraform CLI `dev_overrides` entry for `registry.terraform.io/Indexyz/wanix` pointing to your Go binary directory.
