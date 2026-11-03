@@ -1,3 +1,9 @@
+## 0.1.1
+
+BUG FIXES:
+
+- Fix code generation after upgrading copywrite to v0.25.3 by replacing the stale Koanf v1 dependency with compatible split modules and Koanf v2.
+
 ## 0.1.0
 
 FEATURES:
